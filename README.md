@@ -93,4 +93,4 @@ MIT
 
 ---
 
-Lovable Generated Project | Built by [aurangzeb200](https://github.com/aurangzeb200)
+Built by [aurangzeb200](https://github.com/aurangzeb200)
