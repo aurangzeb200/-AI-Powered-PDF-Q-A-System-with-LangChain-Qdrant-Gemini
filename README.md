@@ -1,96 +1,168 @@
-# AI-Powered PDF Q&A System with LangChain, Qdrant, and Gemini
+# Papertrail PDF Q&A
 
-Modern, full-stack RAG (Retrieval-Augmented Generation) application for intelligent document processing and conversational AI over PDFs. This project leverages LangChain for document handling, Qdrant for vector search, HuggingFace embeddings, and Google Gemini for generative AI responses, wrapped in a beautiful React frontend.
+Papertrail is a source-backed PDF question-answering application. It turns uploaded PDFs into searchable chunks, retrieves the most relevant context with a local Qdrant collection, and asks Google Gemini to produce a concise answer grounded in that context.
 
-## Features
+The repository is intentionally split into two independently runnable services. The **frontend** is a Vite + React client with a focused document workspace. The **backend** is a FastAPI service responsible for PDF extraction, embeddings, Qdrant persistence, and Gemini requests.
 
-- **PDF Upload & Chunking:** Upload PDF documents, automatically split into content chunks for efficient retrieval.
-- **Semantic Search:** Dense and sparse embedding models for accurate information retrieval, powered by HuggingFace and Qdrant.
-- **Conversational Q&A:** Ask questions about your PDF content and receive smart, context-aware answers.
-- **Source Attribution:** Responses include references to page numbers, confidence scores, and document metadata.
-- **Modern UI:** Responsive React interface with elegant glassmorphism styling, dark mode, and smooth interactions.
-- **Fast Local/Cloud Search:** Uses Qdrant vector database (memory or persistent) for fast chunk indexing and search.
-- **Custom Embeddings:** Supports "sentence-transformers/all-mpnet-base-v2" for dense embeddings and BM25 for sparse retrieval.
-- **Generative Answers:** Google Gemini API for advanced language generation and summarization.
+## What changed
+
+This version replaces the original notebook-style prototype with a runnable API and a connected frontend. The UI has been rebuilt around a warm neutral palette, dark ink typography, and one muted teal accent. It uses a restrained 60–30–10 color hierarchy with solid surfaces, crisp borders, and no decorative promotion. Generated metadata, tagger tooling, and third-party promotion have been removed.
+
+The implementation now supports real PDF upload and indexing, document listing and deletion, document selection for grounded questions, source evidence display, backend health visibility, typed API responses, friendly validation errors, and a responsive document library.
 
 ## Architecture
 
-- **Backend:** Python (rag_system.py)
-  - Loads PDF via `PyPDFLoader`.
-  - Extracts metadata and splits document into chunks.
-  - Embeds chunks with HuggingFace and Qdrant FastEmbedSparse models.
-  - Stores and indexes chunks in Qdrant (in-memory or persistent).
-  - Provides endpoints for chat-based Q&A.
-  - Integrates with Google Gemini for generative answers.
+| Area | Location | Responsibility |
+|---|---|---|
+| Frontend | `frontend/` | React interface, document library, chat composer, source display, API client |
+| Backend | `backend/app.py` | FastAPI routes, PDF parsing, chunking, embedding, Qdrant storage, Gemini generation |
+| Runtime data | `backend/data/` | Local PDFs, document registry, and Qdrant files; ignored by Git |
+| Configuration | `frontend/.env.example`, `backend/.env.example` | Non-secret environment templates |
 
-- **Frontend:** React + Vite
-  - Upload, manage, and browse documents.
-  - Ask questions and view answers in conversational chat.
-  - UI components for chat, sidebar, pagination, charts, carousels, and more.
-  - Source highlighting and answer confidence metrics.
+The request flow is: **upload PDF → extract page text → chunk text → create normalized embeddings → upsert chunks into Qdrant → retrieve relevant chunks → generate an answer with Gemini → return answer and source pages**.
 
-## Quick Start
+## Requirements
 
-1. **Clone the repository**
-    ```bash
-    git clone https://github.com/aurangzeb200/-AI-Powered-PDF-Q-A-System-with-LangChain-Qdrant-Gemini.git
-    cd -AI-Powered-PDF-Q-A-System-with-LangChain-Qdrant-Gemini
-    ```
+You need Node.js 18 or newer, Python 3.10 or newer, and a Google Gemini API key. The first indexed document downloads the configured sentence-transformers model, so the backend requires internet access during the initial model setup. The default embedding model is `sentence-transformers/all-MiniLM-L6-v2` and the default generation model is `gemini-2.5-flash`.
 
-2. **Install Backend Requirements**
-    ```bash
-    pip install torch langchain qdrant-client pypdf google-colab huggingface-hub
-    ```
+## Local setup
 
-3. **Install Frontend Requirements**
-    ```bash
-    npm install
-    ```
+### 1. Clone the repository
 
-4. **Run the Backend**
-    - Configure Google Gemini API key in Google Colab or your environment.
-    - Start the backend service (see `rag_system.py` for details).
+```bash
+git clone https://github.com/aurangzeb200/-AI-Powered-PDF-Q-A-System-with-LangChain-Qdrant-Gemini.git
+cd -AI-Powered-PDF-Q-A-System-with-LangChain-Qdrant-Gemini
+```
 
-5. **Run the Frontend**
-    ```bash
-    npm run dev
-    ```
+### 2. Configure and start the backend
 
-## Usage
+Create a virtual environment and install the pinned backend dependencies:
 
-- Upload PDF files via the web UI or backend API.
-- Ask questions; responses leverage both retrieval and generative AI.
-- Inspect answers, view referenced sources, and explore document context.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+cp backend/.env.example backend/.env
+```
 
-## Technologies
+Set `GOOGLE_API_KEY` in `backend/.env`. Do not commit that file. Start the API from the repository root:
 
-- **LangChain** – Document loading, chunking, and processing.
-- **Qdrant** – Vector database for semantic search.
-- **HuggingFace** – Embedding models for semantic similarity.
-- **Google Gemini** – Generative AI responses.
-- **React + Vite** – Modern frontend stack.
-- **Tailwind CSS** – Responsive, glassmorphism UI.
+```bash
+set -a
+source backend/.env
+set +a
+uvicorn app:app --app-dir backend --reload --port 8000
+```
 
-## File Structure
+The backend is available at `http://localhost:8000`. Its health endpoint is `http://localhost:8000/health`.
 
-- `rag_system.py` – Core backend logic for RAG pipeline.
-- `src/` – Frontend React components and utilities.
-- `index.html` – App entry point.
-- `vite.config.ts` – Vite configuration for frontend.
+### 3. Configure and start the frontend
 
-## Acknowledgements
+In a second terminal, install the client dependencies and create the local API configuration:
 
-- [LangChain](https://github.com/langchain-ai/langchain)
-- [Qdrant](https://qdrant.tech/)
-- [HuggingFace Transformers](https://huggingface.co/)
-- [Google Gemini](https://ai.google.dev/gemini)
-- [Embla Carousel](https://www.embla-carousel.com/)
-- [Lucide React Icons](https://lucide.dev/)
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
+```
 
-## License
+Open the URL printed by Vite, normally `http://localhost:5173`. If the backend runs on another origin, set `VITE_API_URL` in `frontend/.env` to that origin and add the frontend origin to `CORS_ORIGINS` in the backend environment.
 
-MIT
+## Configuration
 
----
+| Variable | Service | Default | Purpose |
+|---|---|---|---|
+| `GOOGLE_API_KEY` | Backend | None | Authenticates Gemini requests |
+| `GEMINI_MODEL` | Backend | `gemini-2.5-flash` | Gemini model used for answers |
+| `EMBEDDING_MODEL` | Backend | `sentence-transformers/all-MiniLM-L6-v2` | Sentence-transformers model for dense retrieval |
+| `DATA_DIR` | Backend | `backend/data` | Local PDF, registry, and Qdrant storage directory |
+| `CORS_ORIGINS` | Backend | `http://localhost:5173,http://localhost:8080` | Comma-separated browser origins allowed to call the API |
+| `MAX_FILE_BYTES` | Backend | `10485760` | Maximum PDF size, 10 MiB by default |
+| `PORT` | Backend | `8000` | Port used by the direct Python entry point |
+| `VITE_API_URL` | Frontend | `http://localhost:8000` | Backend origin used by the browser client |
 
-Built by [aurangzeb200](https://github.com/aurangzeb200)
+## API reference
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Returns service status, configuration readiness, and document count |
+| `GET` | `/documents` | Lists indexed documents |
+| `POST` | `/upload` | Uploads and indexes one PDF using multipart field `file` |
+| `DELETE` | `/documents/{document_id}` | Removes a document, its vectors, and its local PDF |
+| `POST` | `/chat` | Retrieves context and generates an answer; body includes `query` and optional `document_id` |
+
+Example upload request:
+
+```bash
+curl -X POST http://localhost:8000/upload \
+  -F "file=@/path/to/document.pdf"
+```
+
+Example question:
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query":"What is the main subject of this document?","document_id":"your-document-id"}'
+```
+
+## Frontend commands
+
+| Command | Result |
+|---|---|
+| `npm run dev` | Starts the Vite development server |
+| `npm run build` | Type-checks and creates a production build |
+| `npm run lint` | Runs ESLint across the frontend |
+| `npm run preview` | Serves the production build locally |
+
+## Backend behavior and limitations
+
+PDFs are currently the supported upload format. The service extracts text page by page with `pypdf`, creates overlapping text chunks, and stores dense vectors in a local Qdrant database. The local database is persistent under `DATA_DIR`, but it is intentionally ignored by Git and should be backed up separately if the documents matter.
+
+Answers require a configured Gemini key. Without that key, the health endpoint remains available and uploads can still be indexed, but the chat endpoint returns a clear configuration error instead of silently returning a fabricated answer. Scanned image-only PDFs require OCR, which is not included in this implementation.
+
+## Verification
+
+The frontend has been verified with a clean TypeScript build and ESLint run. The backend has been syntax-checked, imported through FastAPI’s test client, and exercised for health, document listing, invalid-upload validation, empty-chat validation, CORS preflight, and a real fixture PDF upload that returned an indexed document with page and chunk metadata.
+
+To run a lightweight local check after starting the backend, use the following commands:
+
+```bash
+curl http://localhost:8000/health
+curl http://localhost:8000/documents
+```
+
+## Project layout
+
+```text
+.
+├── backend/
+│   ├── app.py
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── data/
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/Workspace.tsx
+│   │   ├── api.ts
+│   │   ├── App.tsx
+│   │   ├── App.css
+│   │   └── index.css
+│   ├── index.html
+│   ├── package.json
+│   └── .env.example
+├── .gitignore
+└── README.md
+```
+
+## References
+
+[1]: https://fastapi.tiangolo.com/ "FastAPI documentation"
+[2]: https://qdrant.tech/documentation/ "Qdrant documentation"
+[3]: https://pypi.org/project/pypdf/ "pypdf project page"
+[4]: https://ai.google.dev/gemini-api/docs "Google Gemini API documentation"
+[5]: https://www.sbert.net/ "Sentence Transformers documentation"
+[6]: https://vite.dev/guide/ "Vite documentation"
+[7]: https://react.dev/ "React documentation"
