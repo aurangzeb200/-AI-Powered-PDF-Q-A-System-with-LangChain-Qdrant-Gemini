@@ -1,12 +1,12 @@
 # Papertrail PDF Q&A
 
-Papertrail is a source-backed PDF question-answering application. It turns uploaded PDFs into searchable chunks, retrieves the most relevant context with a local Qdrant collection, and asks Google Gemini to produce a concise answer grounded in that context.
+Papertrail is a source-backed PDF question-answering application. The optional local FastAPI service uses Qdrant for dense retrieval, while the free hosted Netlify demo stores extracted text in Netlify Blobs and performs lightweight keyword retrieval before asking Google Gemini for a concise grounded answer.
 
-The repository is intentionally split into two independently runnable services. The **frontend** is a Vite + React client with a focused document workspace. The **backend** is a FastAPI service responsible for PDF extraction, embeddings, Qdrant persistence, and Gemini requests.
+The repository is organized as a Vite + React client with a focused document workspace and a Netlify Function API for the free hosted demo. The original FastAPI service remains in `backend/` as an optional local/full-RAG implementation; the deployed demo uses the Node-based Function in `netlify/functions/api.mts` so both frontend and backend can run on the same free Netlify site.
 
 ## What changed
 
-This version replaces the original notebook-style prototype with a runnable API and a connected frontend. The UI has been rebuilt around a warm neutral palette, dark ink typography, and one muted teal accent. It uses a restrained 60–30–10 color hierarchy with solid surfaces, crisp borders, and no decorative promotion. Generated metadata, tagger tooling, and third-party promotion have been removed.
+This version replaces the original notebook-style prototype with a runnable serverless API and a connected frontend. The UI has been rebuilt around a warm neutral palette, dark ink typography, and one muted teal accent. It uses a restrained 60–30–10 color hierarchy with solid surfaces, crisp borders, and no decorative promotion. Generated metadata, tagger tooling, and third-party promotion have been removed.
 
 The implementation now supports real PDF upload and indexing, document listing and deletion, document selection for grounded questions, source evidence display, backend health visibility, typed API responses, friendly validation errors, and a responsive document library.
 
@@ -34,7 +34,7 @@ git clone https://github.com/aurangzeb200/-AI-Powered-PDF-Q-A-System-with-LangCh
 cd -AI-Powered-PDF-Q-A-System-with-LangChain-Qdrant-Gemini
 ```
 
-### 2. Configure and start the backend
+### 2. Optional: run the full FastAPI backend locally
 
 Create a virtual environment and install the pinned backend dependencies:
 
@@ -56,7 +56,7 @@ uvicorn app:app --app-dir backend --reload --port 8000
 
 The backend is available at `http://localhost:8000`. Its health endpoint is `http://localhost:8000/health`.
 
-### 3. Configure and start the frontend
+### 3. Optional: connect the frontend to FastAPI locally
 
 In a second terminal, install the client dependencies and create the local API configuration:
 
@@ -69,6 +69,18 @@ npm run dev
 
 Open the URL printed by Vite, normally `http://localhost:5173`. If the backend runs on another origin, set `VITE_API_URL` in `frontend/.env` to that origin and add the frontend origin to `CORS_ORIGINS` in the backend environment.
 
+### 4. Run the free Netlify demo locally
+
+The hosted deployment uses the serverless Function API and does not require the Python service. From the repository root, install the root dependencies and create a local environment file containing your Gemini key:
+
+```bash
+npm install
+printf 'GOOGLE_API_KEY=replace-with-your-gemini-api-key\n' > .env
+npm run dev
+```
+
+Netlify Dev will start the Vite client and Function API together. Open the local URL it prints, normally `http://localhost:8888`. This mirrors the production `/api` routes and is the preferred workflow for testing the free hosted demo.
+
 ## Configuration
 
 | Variable | Service | Default | Purpose |
@@ -80,27 +92,25 @@ Open the URL printed by Vite, normally `http://localhost:5173`. If the backend r
 | `CORS_ORIGINS` | Backend | `http://localhost:5173,http://localhost:8080` | Comma-separated browser origins allowed to call the API |
 | `MAX_FILE_BYTES` | Backend | `10485760` | Maximum PDF size, 10 MiB by default |
 | `PORT` | Backend | `8000` | Port used by the direct Python entry point |
-| `VITE_API_URL` | Frontend | `http://localhost:8000` | Backend origin used by the browser client |
+| `VITE_API_URL` | Frontend | Empty | Optional direct FastAPI origin; leave blank for Netlify Functions |
 
 ## Free client-demo deployment
 
-For a portfolio or client demonstration, deploy only the frontend to Netlify and run the FastAPI backend as a Render Free web service. This costs $0 on the provider free tiers, but the backend can sleep after inactivity and its local uploaded files can be lost after restarts or redeploys. Upload a small sample PDF before a demo rather than treating this setup as production storage.
+For a portfolio or client demonstration, deploy the **frontend and lightweight demo backend together on Netlify Free**. This avoids the provider that requested a payment card. The Function API stores document text and metadata in Netlify Blobs and calls Gemini server-side. It is appropriate for a small demo, but it is not a production document platform: keep uploads small, avoid sensitive client documents, and monitor the free plan’s usage limits.
 
-The repository includes `netlify.toml` and `render.yaml` to keep the settings reproducible. On Netlify, import the GitHub repository and use the `main` branch. The included configuration builds from the repository root with `npm --prefix frontend ci && npm --prefix frontend run build` and publishes `frontend/dist`. After the backend is deployed, set the Netlify environment variable `VITE_API_URL` to the public Render API URL, then trigger a new deploy.
+The repository includes `netlify.toml` to keep the settings reproducible. In Netlify, use the GitHub repository and the `main` branch. The configuration installs root Function dependencies, installs frontend dependencies, builds the frontend, publishes `frontend/dist`, and routes `/api/*` to the Function. Leave `VITE_API_URL` blank for the hosted demo so the client uses same-origin `/api` routes. Set `GOOGLE_API_KEY` in the Netlify project’s environment variables with the Functions scope enabled. Never put that key in frontend source code or in a public build variable.
 
-On Render, create a **Free Web Service** from the same GitHub repository or use the Blueprint in `render.yaml`. The backend root directory is `backend`, the build command is `pip install -r requirements.txt`, the start command is `uvicorn app:app --host 0.0.0.0 --port $PORT`, and the health-check path is `/health`. Set `GOOGLE_API_KEY` as a secret and set `CORS_ORIGINS` to the exact Netlify site URL, for example `https://your-site.netlify.app`. Never put `GOOGLE_API_KEY` in Netlify or in frontend source code.
-
-After both services are deployed, open the Netlify URL, confirm that the API indicator is connected, upload a sample PDF, and ask a question. The first request after idle time may take about a minute while the free backend wakes up. If the document list is empty after a backend restart, upload the sample PDF again.
+After deployment, open `https://papertrail-pdf-qa-demo.netlify.app`, confirm that the API indicator is connected, upload a sample PDF, and ask a question. If the first serverless request is slow, wait and retry once. The FastAPI service in `backend/` can still be run locally when you want the original Qdrant-based implementation; it is not required for the free hosted demo.
 
 ## API reference
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/health` | Returns service status, configuration readiness, and document count |
-| `GET` | `/documents` | Lists indexed documents |
-| `POST` | `/upload` | Uploads and indexes one PDF using multipart field `file` |
-| `DELETE` | `/documents/{document_id}` | Removes a document, its vectors, and its local PDF |
-| `POST` | `/chat` | Retrieves context and generates an answer; body includes `query` and optional `document_id` |
+| `GET` | `/api/health` | Returns Function status, Gemini configuration readiness, and document count |
+| `GET` | `/api/documents` | Lists documents stored in Netlify Blobs |
+| `POST` | `/api/upload` | Uploads and parses one PDF using multipart field `file` |
+| `DELETE` | `/api/documents/{document_id}` | Removes a stored document |
+| `POST` | `/api/chat` | Retrieves relevant chunks and generates an answer; body includes `query` and optional `document_id` |
 
 Example upload request:
 
