@@ -82,6 +82,16 @@ Open the URL printed by Vite, normally `http://localhost:5173`. If the backend r
 | `PORT` | Backend | `8000` | Port used by the direct Python entry point |
 | `VITE_API_URL` | Frontend | `http://localhost:8000` | Backend origin used by the browser client |
 
+## Free client-demo deployment
+
+For a portfolio or client demonstration, deploy only the frontend to Netlify and run the FastAPI backend as a Render Free web service. This costs $0 on the provider free tiers, but the backend can sleep after inactivity and its local uploaded files can be lost after restarts or redeploys. Upload a small sample PDF before a demo rather than treating this setup as production storage.
+
+The repository includes `netlify.toml` and `render.yaml` to keep the settings reproducible. On Netlify, import the GitHub repository and use the `main` branch. The included configuration builds from the repository root with `npm --prefix frontend ci && npm --prefix frontend run build` and publishes `frontend/dist`. After the backend is deployed, set the Netlify environment variable `VITE_API_URL` to the public Render API URL, then trigger a new deploy.
+
+On Render, create a **Free Web Service** from the same GitHub repository or use the Blueprint in `render.yaml`. The backend root directory is `backend`, the build command is `pip install -r requirements.txt`, the start command is `uvicorn app:app --host 0.0.0.0 --port $PORT`, and the health-check path is `/health`. Set `GOOGLE_API_KEY` as a secret and set `CORS_ORIGINS` to the exact Netlify site URL, for example `https://your-site.netlify.app`. Never put `GOOGLE_API_KEY` in Netlify or in frontend source code.
+
+After both services are deployed, open the Netlify URL, confirm that the API indicator is connected, upload a sample PDF, and ask a question. The first request after idle time may take about a minute while the free backend wakes up. If the document list is empty after a backend restart, upload the sample PDF again.
+
 ## API reference
 
 | Method | Endpoint | Description |
